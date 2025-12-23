@@ -1,12 +1,12 @@
 import "dotenv/config"
+import express from "express"
 import { Server } from "@modelcontextprotocol/sdk/server/index.js"
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js"
 import {
     ListToolsRequestSchema,
     CallToolRequestSchema
 } from "@modelcontextprotocol/sdk/types.js"
 import { z } from "zod"
-
 
 const DRUPAL_JSONAPI_BASE = process.env.DRUPAL_JSONAPI_BASE
 const DRUPAL_TOKEN = process.env.DRUPAL_TOKEN
@@ -32,7 +32,6 @@ function toNumberMaybe(value) {
     if (typeof value === "number") return value
     if (typeof value !== "string") return null
 
-    // handle "129.00" (dot) and "129,00" (comma)
     const normalized = value.replace(",", ".").trim()
     const n = Number(normalized)
     return Number.isFinite(n) ? n : null
@@ -44,7 +43,6 @@ function flattenItem(payload) {
 
     const attrs = item.attributes || {}
 
-    // taxonomy include mapping (multi-value)
     const included = Array.isArray(payload.included) ? payload.included : []
     const termNameById = new Map(
         included
@@ -69,58 +67,81 @@ function flattenItem(payload) {
     }
 }
 
-const server = new Server(
-    { name: "drupal-products-mcp", version: "1.0.0" },
-    { capabilities: { tools: {} } }
-)
+function buildMcpServer() {
+    const server = new Server(
+        { name: "drupal-products-mcp", version: "1.0.0" },
+        { capabilities: { tools: {} } }
+    )
 
-
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return {
-        tools: [
-            {
-                name: "get_product_by_id",
-                description: "Get a product (node item) by UUID from Drupal JSON:API and return a flattened object",
-                inputSchema: {
-                    type: "object",
-                    properties: { id: { type: "string" } },
-                    required: ["id"]
-                }
-            }
-        ]
-    }
-})
-
-server.setRequestHandler(CallToolRequestSchema, async (req) => {
-    const { name, arguments: args } = req.params
-
-    if (name !== "get_product_by_id") throw new Error(`Unknown tool: ${name}`)
-
-    const { id } = z.object({ id: z.string().min(1) }).parse(args)
-
-    console.log("[get_product_by_id] request", { id })
-
-    const url = new URL(`${DRUPAL_JSONAPI_BASE}/node/item/${id}`)
-    url.searchParams.set("include", "field_taglie")
-
-    const payload = await httpGetJson(url.toString())
-
-    if (payload?._status === "not_found") {
-        console.log("[get_product_by_id] not_found", { id })
+    server.setRequestHandler(ListToolsRequestSchema, async () => {
         return {
-            content: [{ type: "text", text: JSON.stringify({ ok: false, error: "not_found", id }) }]
+            tools: [
+                {
+                    name: "get_product_by_id",
+                    description: "Get a product (node item) by UUID from Drupal JSON:API and return a flattened object",
+                    inputSchema: {
+                        type: "object",
+                        properties: { id: { type: "string" } },
+                        required: ["id"]
+                    }
+                }
+            ]
         }
-    }
+    })
 
-    const product = flattenItem(payload)
+    server.setRequestHandler(CallToolRequestSchema, async (req) => {
+        const { name, arguments: args } = req.params
+        if (name !== "get_product_by_id") throw new Error(`Unknown tool: ${name}`)
 
-    console.log("[get_product_by_id] ok", { id, title: product.title })
-    
-    return {
-        content: [{ type: "text", text: JSON.stringify({ ok: true, product }) }]
+        const { id } = z.object({ id: z.string().min(1) }).parse(args)
+
+        console.log("[get_product_by_id] request", { id })
+
+        const url = new URL(`${DRUPAL_JSONAPI_BASE}/node/item/${id}`)
+        url.searchParams.set("include", "field_taglie")
+
+        const payload = await httpGetJson(url.toString())
+
+        if (payload?._status === "not_found") {
+            console.log("[get_product_by_id] not_found", { id })
+            return {
+                content: [{ type: "text", text: JSON.stringify({ ok: false, error: "not_found", id }) }]
+            }
+        }
+
+        const product = flattenItem(payload)
+
+        console.log("[get_product_by_id] ok", { id, title: product.title })
+        return {
+            content: [{ type: "text", text: JSON.stringify({ ok: true, product }) }]
+        }
+    })
+
+    return server
+}
+
+// --- HTTP host (Render) ---
+const app = express()
+app.use(express.json({ limit: "2mb" }))
+
+// Healthcheck
+app.get("/health", (req, res) => res.json({ ok: true }))
+
+// MCP endpoint
+app.post("/mcp", async (req, res) => {
+    try {
+        const server = buildMcpServer()
+        const transport = new StreamableHTTPServerTransport({ enableJsonResponse: true })
+
+        await server.connect(transport)
+        await transport.handleRequest(req, res, req.body)
+    } catch (e) {
+        console.error("MCP error:", e)
+        res.status(500).json({ ok: false, error: String(e) })
     }
 })
 
-const transport = new StdioServerTransport()
-await server.connect(transport)
-console.log("Drupal products MCP server running (stdio)")
+const PORT = process.env.PORT || 3000
+app.listen(PORT, () => {
+    console.log(`MCP server listening on :${PORT} (POST /mcp)`)
+})
