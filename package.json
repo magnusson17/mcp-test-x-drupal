@@ -1,0 +1,26 @@
+{
+    "name": "mcp-test-x-drupal",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/magnusson17/mcp-test-x-drupal.git"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "commonjs",
+    "bugs": {
+        "url": "https://github.com/magnusson17/mcp-test-x-drupal/issues"
+    },
+    "homepage": "https://github.com/magnusson17/mcp-test-x-drupal#readme",
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.25.1",
+        "express": "^5.2.1",
+        "zod": "^4.2.1"
+    }
+}
