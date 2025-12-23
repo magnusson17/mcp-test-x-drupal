@@ -20,6 +20,7 @@
     "homepage": "https://github.com/magnusson17/mcp-test-x-drupal#readme",
     "dependencies": {
         "@modelcontextprotocol/sdk": "^1.25.1",
+        "dotenv": "^17.2.3",
         "express": "^5.2.1",
         "zod": "^4.2.1"
     }
