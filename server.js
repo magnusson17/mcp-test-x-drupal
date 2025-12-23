@@ -1,7 +1,12 @@
 import "dotenv/config"
 import { Server } from "@modelcontextprotocol/sdk/server/index.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
+import {
+    ListToolsRequestSchema,
+    CallToolRequestSchema
+} from "@modelcontextprotocol/sdk/types.js"
 import { z } from "zod"
+
 
 const DRUPAL_JSONAPI_BASE = process.env.DRUPAL_JSONAPI_BASE
 const DRUPAL_TOKEN = process.env.DRUPAL_TOKEN
@@ -69,7 +74,8 @@ const server = new Server(
     { capabilities: { tools: {} } }
 )
 
-server.setRequestHandler("tools/list", async () => {
+
+server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
         tools: [
             {
@@ -77,9 +83,7 @@ server.setRequestHandler("tools/list", async () => {
                 description: "Get a product (node item) by UUID from Drupal JSON:API and return a flattened object",
                 inputSchema: {
                     type: "object",
-                    properties: {
-                        id: { type: "string", description: "UUID from JSON:API data.id" }
-                    },
+                    properties: { id: { type: "string" } },
                     required: ["id"]
                 }
             }
@@ -87,12 +91,10 @@ server.setRequestHandler("tools/list", async () => {
     }
 })
 
-server.setRequestHandler("tools/call", async (req) => {
+server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const { name, arguments: args } = req.params
 
-    if (name !== "get_product_by_id") {
-        throw new Error(`Unknown tool: ${name}`)
-    }
+    if (name !== "get_product_by_id") throw new Error(`Unknown tool: ${name}`)
 
     const { id } = z.object({ id: z.string().min(1) }).parse(args)
 
@@ -113,6 +115,7 @@ server.setRequestHandler("tools/call", async (req) => {
     const product = flattenItem(payload)
 
     console.log("[get_product_by_id] ok", { id, title: product.title })
+    
     return {
         content: [{ type: "text", text: JSON.stringify({ ok: true, product }) }]
     }
