@@ -14,6 +14,7 @@ const DRUPAL_TOKEN = process.env.DRUPAL_TOKEN
 if (!DRUPAL_JSONAPI_BASE) throw new Error("Missing DRUPAL_JSONAPI_BASE in .env")
 
 async function httpGetJson(url) {
+
     const res = await fetch(url, {
         headers: {
             Accept: "application/vnd.api+json", // il formato ufficiale per JSON:API media type
@@ -27,6 +28,7 @@ async function httpGetJson(url) {
     return res.json()
 }
 
+// per essere sicuro di ritornare un number e non una string
 function toNumberMaybe(value) {
     if (value === null || value === undefined) return null
     if (typeof value === "number") return value
@@ -37,6 +39,7 @@ function toNumberMaybe(value) {
     return Number.isFinite(n) ? n : null
 }
 
+// prendo l'obj, lo lavoro e ritorno solo i fields che voglio
 function flattenItem(payload) {
     const item = payload?.data
     if (!item?.id || !item?.type) throw new Error("Invalid JSON:API payload (missing data.id/type)")
@@ -60,7 +63,7 @@ function flattenItem(payload) {
         title: attrs.title ?? null,
         categoria: attrs.field_categoria ?? null,
         materiale: attrs.field_materiale ?? null,
-        prezzo: toNumberMaybe(attrs.field_prezzo),
+        prezzo: attrs.field_prezzo ?? null,
         valuta: attrs.field_valuta ?? null,
         taglie,
         taglie_ids
@@ -68,12 +71,13 @@ function flattenItem(payload) {
 }
 
 function buildMcpServer() {
+
     const server = new Server(
         { name: "drupal-products-mcp", version: "1.0.0" },
         { capabilities: { tools: {} } }
     )
 
-    // sett o i tools che voglio
+    // setto i tools che voglio
     server.setRequestHandler(ListToolsRequestSchema, async () => {
         return {
             tools: [
@@ -92,35 +96,53 @@ function buildMcpServer() {
 
     // definisco cosa succede quando uso uno specifico tool
     server.setRequestHandler(CallToolRequestSchema, async (req) => {
-        
+
         const {
             name,
             arguments: args
         } = req.params
 
-        if (name !== "get_product_by_id") throw new Error(`Unknown tool: ${name}`)
+        try {
 
-        // valido gli args tramite uno schema e, se valido, estraggo id dal risultato
-        const { id } = z.object({ id: z.string().min(1) }).parse(args)
-        console.log("[get_product_by_id] request", { id })
+            if (name !== "get_product_by_id") throw new Error(`Unknown tool: ${name}`)
 
-        const url = new URL(`${DRUPAL_JSONAPI_BASE}/node/item/${id}`)
-        url.searchParams.set("include", "field_taglie")
+            // valido gli args tramite uno schema e, se valido, estraggo id dal risultato
+            const { id } = z.object({ id: z.string().min(1) }).parse(args)
+            console.log("[get_product_by_id] request", { id })
 
-        const payload = await httpGetJson(url.toString())
+            const url = new URL(`${DRUPAL_JSONAPI_BASE}/node/item/${id}`)
+            url.searchParams.set("include", "field_taglie")
 
-        if (payload?._status === "not_found") {
-            console.log("[get_product_by_id] not_found", { id })
-            return {
-                content: [{ type: "text", text: JSON.stringify({ ok: false, error: "not_found", id }) }]
+            const payload = await httpGetJson(url.toString())
+
+            if (payload?._status === "not_found") {
+                console.log("[get_product_by_id] not_found", { id })
+                return {
+                    content: [{ type: "text", text: JSON.stringify({ ok: false, error: "not_found", id }) }]
+                }
             }
-        }
 
-        const product = flattenItem(payload)
-        console.log("[get_product_by_id] ok", { id, title: product.title })
+            const product = flattenItem(payload)
+            console.log("[get_product_by_id] ok", { id, title: product.title })
 
-        return {
-            content: [{ type: "text", text: JSON.stringify({ ok: true, product }) }]
+            return {
+                content: [{ type: "text", text: JSON.stringify({ ok: true, product }) }]
+            }
+        } catch (e) {
+            console.error("[get_product_by_id] error", e)
+
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify({
+                            ok: false,
+                            error: "internal_error",
+                            message: e?.message ?? String(e)
+                        })
+                    }
+                ]
+            }
         }
     })
 
@@ -138,17 +160,11 @@ app.get("/", (req, res) => {
 // Healthcheck
 app.get("/health", (req, res) => res.json({ ok: true }))
 
-// Test
-app.get("/test", (req, res) => {
-    const server = buildMcpServer()
-    console.log(server)
-})
-
 // MCP endpoint
 app.post("/mcp", async (req, res) => {
     try {
         req.headers.accept = req.headers.accept || "application/json, text/event-stream"
-        
+
         const server = buildMcpServer()
         const transport = new StreamableHTTPServerTransport({ enableJsonResponse: true })
 
