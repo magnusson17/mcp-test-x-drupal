@@ -100,8 +100,8 @@ function buildMcpServer() {
 
         if (name !== "get_product_by_id") throw new Error(`Unknown tool: ${name}`)
 
-        // valido gli args tramite uno schema e, se valido, estraggo id dal risultato
         const { id } = z.object({ id: z.string().min(1) }).parse(args)
+
         console.log("[get_product_by_id] request", { id })
 
         const url = new URL(`${DRUPAL_JSONAPI_BASE}/node/item/${id}`)
@@ -117,8 +117,8 @@ function buildMcpServer() {
         }
 
         const product = flattenItem(payload)
-        console.log("[get_product_by_id] ok", { id, title: product.title })
 
+        console.log("[get_product_by_id] ok", { id, title: product.title })
         return {
             content: [{ type: "text", text: JSON.stringify({ ok: true, product }) }]
         }
@@ -138,23 +138,14 @@ app.get("/", (req, res) => {
 // Healthcheck
 app.get("/health", (req, res) => res.json({ ok: true }))
 
-// Test
-app.get("/test", (req, res) => {
-    const server = buildMcpServer()
-    console.log(server)
-})
-
 // MCP endpoint
 app.post("/mcp", async (req, res) => {
     try {
-        req.headers.accept = req.headers.accept || "application/json, text/event-stream"
-        
         const server = buildMcpServer()
         const transport = new StreamableHTTPServerTransport({ enableJsonResponse: true })
 
         await server.connect(transport)
         await transport.handleRequest(req, res, req.body)
-
     } catch (e) {
         console.error("MCP error:", e)
         res.status(500).json({ ok: false, error: String(e) })
