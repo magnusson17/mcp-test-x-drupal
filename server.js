@@ -28,17 +28,6 @@ async function httpGetJson(url) {
     return res.json()
 }
 
-// per essere sicuro di ritornare un number e non una string
-function toNumberMaybe(value) {
-    if (value === null || value === undefined) return null
-    if (typeof value === "number") return value
-    if (typeof value !== "string") return null
-
-    const normalized = value.replace(",", ".").trim()
-    const n = Number(normalized)
-    return Number.isFinite(n) ? n : null
-}
-
 // prendo l'obj, lo lavoro e ritorno solo i fields che voglio
 function flattenItem(payload) {
     const item = payload?.data
