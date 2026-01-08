@@ -10,8 +10,10 @@ import { z } from "zod"
 
 const DRUPAL_JSONAPI_BASE = process.env.DRUPAL_JSONAPI_BASE
 const DRUPAL_BASIC_AUTH = process.env.DRUPAL_BASIC_AUTH
+const MCP_API_KEY = process.env.MCP_API_KEY
 
 if (!DRUPAL_JSONAPI_BASE) throw new Error("Missing DRUPAL_JSONAPI_BASE in .env")
+if (!MCP_API_KEY) throw new Error("Missing MCP_API_KEY in .env")
 
 async function httpGetJson(url) {
 
@@ -146,10 +148,26 @@ function buildMcpServer() {
 
 // --- HTTP host (Render) ---
 const app = express()
+
+function requireApiKey(req, res, next) {
+
+    if (req.path === "/" || req.path === "/health") return next()
+    if (req.method === "OPTIONS") return res.sendStatus(204)
+
+    const auth = req.headers.authorization || ""
+    const [scheme, token] = auth.split(" ")
+
+    const ok = scheme === "Bearer" && token && token === MCP_API_KEY
+    if (!ok) return res.status(401).json({ error: "Unauthorized" })
+
+    next()
+}
+
+app.use(requireApiKey)
 app.use(express.json({ limit: "2mb" }))
 
 app.get("/", (req, res) => {
-    res.send("OK. Use GET /health or POST /mcp")
+    res.send("OK. Use GET /health")
 })
 
 // Healthcheck
