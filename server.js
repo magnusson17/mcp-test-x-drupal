@@ -9,7 +9,7 @@ import {
 import { z } from "zod"
 
 const DRUPAL_JSONAPI_BASE = process.env.DRUPAL_JSONAPI_BASE
-const DRUPAL_TOKEN = process.env.DRUPAL_TOKEN
+const DRUPAL_BASIC_AUTH = process.env.DRUPAL_BASIC_AUTH
 
 if (!DRUPAL_JSONAPI_BASE) throw new Error("Missing DRUPAL_JSONAPI_BASE in .env")
 
@@ -18,7 +18,13 @@ async function httpGetJson(url) {
     const res = await fetch(url, {
         headers: {
             Accept: "application/vnd.api+json", // il formato ufficiale per JSON:API media type
-            ...(DRUPAL_TOKEN ? { Authorization: `Bearer ${DRUPAL_TOKEN}` } : {}) // setto DRUPAL_TOKEN in .env solo se su drupal ho impostato JSON:API endpoint private
+            ...(DRUPAL_BASIC_AUTH
+                ? {
+                    Authorization:
+                        "Basic " +
+                        Buffer.from(DRUPAL_BASIC_AUTH).toString("base64")
+                }
+                : {}) // DRUPAL_BASIC_AUTH lavora grazie al modulo contrib basic_auth
         }
     })
 
