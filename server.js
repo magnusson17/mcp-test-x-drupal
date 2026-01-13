@@ -8,6 +8,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js"
 import { z } from "zod"
 
+// vedi README.md
 const DRUPAL_JSONAPI_BASE = process.env.DRUPAL_JSONAPI_BASE
 const DRUPAL_BASIC_AUTH = process.env.DRUPAL_BASIC_AUTH
 const MCP_API_KEY = process.env.MCP_API_KEY
@@ -26,7 +27,7 @@ async function httpGetJson(url) {
                         "Basic " +
                         Buffer.from(DRUPAL_BASIC_AUTH).toString("base64")
                 }
-                : {}) // DRUPAL_BASIC_AUTH lavora grazie al modulo contrib basic_auth
+                : {})
         }
     })
 
