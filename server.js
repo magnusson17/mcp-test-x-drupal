@@ -153,7 +153,15 @@ function buildMcpServer() {
             console.log("[get_product_by_id] ok", { id, title: product.title })
 
             return {
-                content: [{ type: "text", text: JSON.stringify(product) }],
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify({
+                            ok: true,
+                            product
+                        })
+                    }
+                ]
             }
 
         } catch (e) {
