@@ -39,12 +39,14 @@ async function httpGetJson(url) {
 
 // prendo l'obj, lo lavoro e ritorno solo i fields che voglio
 function flattenItem(payload) {
+
     const item = payload?.data
     if (!item?.id || !item?.type) throw new Error("Invalid JSON:API payload (missing data.id/type)")
 
     const attrs = item.attributes || {}
-
     const included = Array.isArray(payload.included) ? payload.included : []
+
+    // ottengo i dati di entity ref delle taglie
     const termNameById = new Map(
         included
             .filter(r => typeof r?.type === "string" && r.type.startsWith("taxonomy_term--"))
@@ -55,6 +57,31 @@ function flattenItem(payload) {
     const taglie_ids = Array.isArray(tagRefs) ? tagRefs.map(r => r.id).filter(Boolean) : []
     const taglie = taglie_ids.map(id => termNameById.get(id)).filter(Boolean)
 
+    // ottengo i dati di entity ref dell'img
+    const includedByKey = new Map(
+        included
+            .filter(r => r?.id && r?.type)
+            .map(r => [`${r.type}:${r.id}`, r])
+    )
+
+    const imgRel = item.relationships?.field_immagine?.data || null
+    let immagine = null
+
+    if (imgRel?.id && imgRel?.type?.startsWith("file--")) {
+        const file = includedByKey.get(`${imgRel.type}:${imgRel.id}`) || null
+        const relUrl = file?.attributes?.uri?.url || null
+
+        // make absolute (Drupal usually returns a relative path)
+        const url = relUrl ? new URL(relUrl, DRUPAL_JSONAPI_BASE).toString() : null
+
+        immagine = {
+            url,
+            alt: imgRel?.meta?.alt ?? null,
+            width: imgRel?.meta?.width ?? null,
+            height: imgRel?.meta?.height ?? null
+        }
+    }
+
     return {
         id: item.id,
         type: item.type,
@@ -64,7 +91,8 @@ function flattenItem(payload) {
         prezzo: attrs.field_prezzo ?? null,
         valuta: attrs.field_valuta ?? null,
         taglie,
-        taglie_ids
+        taglie_ids,
+        immagine
     }
 }
 
@@ -108,8 +136,9 @@ function buildMcpServer() {
             const { id } = z.object({ id: z.string().min(1) }).parse(args)
             console.log("[get_product_by_id] request", { id })
 
+            // aggiungo filtri all'url per prendere tutti i campi di entity ref
             const url = new URL(`${DRUPAL_JSONAPI_BASE}/node/item/${id}`)
-            url.searchParams.set("include", "field_taglie")
+            url.searchParams.set("include", "field_taglie,field_immagine")
 
             const payload = await httpGetJson(url.toString())
 
