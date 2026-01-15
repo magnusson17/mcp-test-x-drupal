@@ -155,8 +155,8 @@ function buildMcpServer() {
             return {
                 content: [
                     {
-                        type: "object",
-                        data: product
+                        type: "text",
+                        text: JSON.stringify(product)
                     }
                 ]
             }
