@@ -156,10 +156,7 @@ function buildMcpServer() {
                 content: [
                     {
                         type: "text",
-                        text: JSON.stringify({
-                            ok: true,
-                            product
-                        })
+                        text: JSON.stringify(product)
                     }
                 ]
             }
