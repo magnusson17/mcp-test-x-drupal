@@ -153,9 +153,9 @@ function buildMcpServer() {
             console.log("[get_product_by_id] ok", { id, title: product.title })
 
             return {
-                structuredContent: product,
-                content: [{ type: "text", text: "ok" }]
+                content: [{ type: "text", text: JSON.stringify(product) }],
             }
+
         } catch (e) {
             console.error("[get_product_by_id] error", e)
 
