@@ -150,13 +150,16 @@ function buildMcpServer() {
             }
 
             const product = flattenItem(payload)
-            console.log("[get_product_by_id] ok", { id, title: product.title })
+            console.log("[get_product_by_id] ok", { id, product })
 
             return {
                 content: [
                     {
                         type: "text",
-                        text: JSON.stringify(product)
+                        text: JSON.stringify({
+                            ok: true,
+                            product
+                        })
                     }
                 ]
             }
