@@ -191,6 +191,7 @@ const app = express()
 
 function requireApiKey(req, res, next) {
 
+    if (req.method === "POST" && req.path === "/mcp") return next()
     if (req.path === "/" || req.path === "/health") return next()
     if (req.method === "OPTIONS") return res.sendStatus(204)
 
