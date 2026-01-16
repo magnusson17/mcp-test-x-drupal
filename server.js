@@ -143,8 +143,9 @@ function buildMcpServer() {
                 const exists = payload?._status !== "not_found"
 
                 return {
-                    content: [{ type: "text", text: JSON.stringify({ exists, id }) }]
+                    content: [{ type: "text", text: exists ? "true" : "false" }]
                 }
+
             }
 
             if (name === "get_product_by_id") {
