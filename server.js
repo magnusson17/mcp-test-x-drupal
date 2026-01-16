@@ -143,8 +143,7 @@ function buildMcpServer() {
                 const exists = payload?._status !== "not_found"
 
                 return {
-                    content: [{ type: "text", text: id }]
-                    // content: [{ type: "text", text: exists ? "true" : "false" }]
+                    content: [{ type: "text", text: exists ? "true" : "false" }]
                 }
 
             }
