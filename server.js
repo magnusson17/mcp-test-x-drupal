@@ -115,69 +115,72 @@ function buildMcpServer() {
                         properties: { id: { type: "string" } },
                         required: ["id"]
                     }
-                }
+                },
+                {
+                    name: "check_product_exists",
+                    description: "Dato un ID prodotto, verifica se esiste in Drupal e restituisce { exists: true/false }.",
+                    inputSchema: {
+                        type: "object",
+                        properties: { id: { type: "string" } },
+                        required: ["id"]
+                    }
+                },
             ]
         }
     })
 
     // definisco cosa succede quando uso uno specifico tool
     server.setRequestHandler(CallToolRequestSchema, async (req) => {
-
-        const {
-            name,
-            arguments: args
-        } = req.params
+        const { name, arguments: args } = req.params
 
         try {
-
-            if (name !== "get_product_by_id") throw new Error(`Unknown tool: ${name}`)
-
-            // valido gli args tramite uno schema e, se valido, estraggo id dal risultato
             const { id } = z.object({ id: z.string().min(1) }).parse(args)
-            console.log("[get_product_by_id] request", { id })
 
-            // aggiungo filtri all'url per prendere tutti i campi di entity ref
-            const url = new URL(`${DRUPAL_JSONAPI_BASE}/node/item/${id}`)
-            url.searchParams.set("include", "field_taglie,field_immagine")
+            if (name === "check_product_exists") {
+                const url = new URL(`${DRUPAL_JSONAPI_BASE}/node/item/${id}`)
+                const payload = await httpGetJson(url.toString())
 
-            const payload = await httpGetJson(url.toString())
+                const exists = payload?._status !== "not_found"
 
-            if (payload?._status === "not_found") {
-                console.log("[get_product_by_id] not_found", { id })
                 return {
-                    content: [{ type: "text", text: JSON.stringify({ ok: false, error: "not_found", id }) }]
+                    content: [{ type: "text", text: JSON.stringify({ exists, id }) }]
                 }
             }
 
-            const product = flattenItem(payload)
-            console.log("[get_product_by_id] ok", { id, product })
+            if (name === "get_product_by_id") {
+                const url = new URL(`${DRUPAL_JSONAPI_BASE}/node/item/${id}`)
+                url.searchParams.set("include", "field_taglie,field_immagine")
 
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: JSON.stringify(product)
+                const payload = await httpGetJson(url.toString())
+
+                if (payload?._status === "not_found") {
+                    return {
+                        content: [{ type: "text", text: JSON.stringify({ ok: false, error: "not_found", id }) }]
                     }
-                ]
+                }
+
+                const product = flattenItem(payload)
+
+                return {
+                    content: [{ type: "text", text: JSON.stringify(product) }]
+                }
             }
 
+            throw new Error(`Unknown tool: ${name}`)
         } catch (e) {
-            console.error("[get_product_by_id] error", e)
-
             return {
-                content: [
-                    {
-                        type: "text",
-                        text: JSON.stringify({
-                            ok: false,
-                            error: "internal_error",
-                            message: e?.message ?? String(e)
-                        })
-                    }
-                ]
+                content: [{
+                    type: "text",
+                    text: JSON.stringify({
+                        ok: false,
+                        error: "internal_error",
+                        message: e?.message ?? String(e)
+                    })
+                }]
             }
         }
     })
+
 
     return server
 }
