@@ -11,10 +11,10 @@ import { z } from "zod"
 // vedi README.md
 const DRUPAL_JSONAPI_BASE = process.env.DRUPAL_JSONAPI_BASE
 const DRUPAL_BASIC_AUTH = process.env.DRUPAL_BASIC_AUTH
-const MCP_API_KEY = process.env.MCP_API_KEY
+const MCP_BEARER_TOKEN = process.env.MCP_BEARER_TOKEN
 
 if (!DRUPAL_JSONAPI_BASE) throw new Error("Missing DRUPAL_JSONAPI_BASE in .env")
-if (!MCP_API_KEY) throw new Error("Missing MCP_API_KEY in .env")
+if (!MCP_BEARER_TOKEN) throw new Error("Missing MCP_BEARER_TOKEN in .env")
 
 async function httpGetJson(url) {
 
@@ -193,7 +193,7 @@ function requireApiKey(req, res, next) {
     const auth = req.headers.authorization || ""
     const [scheme, token] = auth.split(" ")
 
-    const ok = scheme === "Bearer" && token && token === MCP_API_KEY
+    const ok = scheme === "Bearer" && token && token === MCP_BEARER_TOKEN
     if (!ok) return res.status(401).json({ error: "Unauthorized" })
 
     next()
